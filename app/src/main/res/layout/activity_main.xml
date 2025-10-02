@@ -73,4 +73,13 @@
         android:text="Save"
         />
 
+    <Button
+        android:onClick="onClickShake"
+        android:id="@+id/ShakeButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Shake"
+        />
+
+
 </LinearLayout>

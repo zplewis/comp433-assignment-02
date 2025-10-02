@@ -6,11 +6,16 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PathMeasure;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+
+import java.util.ArrayList;
 
 public class MyDrawingArea extends View {
 
@@ -18,12 +23,29 @@ public class MyDrawingArea extends View {
     Bitmap bmp;
     Paint p;
 
+    Paint circlePaint;
+
+    int circleRadius = 20;
+
+    int circleSpacing = 60;
+
+    /**
+     * These arraylists are used for the coordinates for where to draw the circles
+     */
+    ArrayList<Circle> circles = new ArrayList<>(100);
+
     private void configurePaint() {
         p = new Paint();
         p.setAntiAlias(true);
         p.setColor(Color.BLACK);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(5f);
+
+        circlePaint = new Paint();
+        circlePaint.setAntiAlias(true);
+        circlePaint.setColor(Color.BLUE);
+
+        setBackgroundColor(Color.rgb(169, 169, 169));
     }
 
     /**
@@ -130,8 +152,17 @@ public class MyDrawingArea extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+
+
         canvas.drawPath(path, p);
         invalidate();
+
+        for (Circle circle : circles) {
+            canvas.drawCircle(circle.getX(), circle.getY(), circle.radius, circlePaint);
+
+            // move the circle
+            circle.move();
+        }
     }
 
     @Override
@@ -153,11 +184,56 @@ public class MyDrawingArea extends View {
         return false;
     }
 
+    public Path getPath() {
+        return path;
+    }
+
+    public void getCreateCircles() {
+
+        // clear any existing circles
+        circles.clear();
+
+        PathMeasure pm = new PathMeasure(path, false);
+        float[] pos = new float[2];
+
+        // Iterate all contours (a Path can have multiple subpaths)
+        do {
+
+            float len = pm.getLength();
+            if (len <= 0) {
+                continue;
+            }
+
+            float d = 0f;
+            while (d <= len) {
+                if (pm.getPosTan(d, pos, null)) {
+                    Circle c = new Circle(
+                            pos[0],
+                            pos[1],
+                            circleRadius,
+                            getHeight(),
+                            0.01F,
+                            30
+                    );
+                    circles.add(c);
+                }
+
+                d += circleSpacing;
+
+
+            }
+
+        } while (pm.nextContour());
+
+
+    }
+
     /**
      * Clear the path.
      */
     public void clearDrawing() {
         path.reset();
+        circles.clear();
     }
 
     /**
