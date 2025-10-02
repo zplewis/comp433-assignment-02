@@ -1,7 +1,13 @@
 package com.example.comp433assignment02;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -9,7 +15,24 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
+
 public class MainActivity extends AppCompatActivity {
+
+    /**
+     *
+     */
+    int currentPhotoIndex = -1;
+
+    File[] appPhotos;
+
+    final String photoFileExtension = ".png";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,8 +44,149 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // Update the images in the ImageView objects upon opening the app
+        updateAppPhotoList();
+    }
+
+    /**
+     * Sorts the specified File array in descending order by last modified date and then name.
+     * @param files
+     */
+    private void sortFiles(File[] files) {
+        Arrays.sort(files, (f1, f2) -> {
+
+            if (f1 == null && f2 == null) {
+                return 0;
+            }
+
+            if (f1 == null) {
+                return -1;
+            }
+
+            // compare by date in descending order
+            int comparison = Long.compare(f2.lastModified(), f1.lastModified());
+            if (comparison != 0) {
+                return comparison;
+            }
+
+            // If there are equal last modified dates, then compare by name
+            return f2.getName().compareToIgnoreCase(f1.getName());
+        });
+    }
+
+    private File[] getFileList() {
+        // 1. Get the picture directory
+        File pictureDirectory = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        // If this directory is valid, add all of the items to the arraylist in descending order.
+        if (pictureDirectory == null || !pictureDirectory.isDirectory()) {
+            return new File[0];
+        }
+
+        File[] files = pictureDirectory.listFiles();
+        if (files == null || files.length == 0) {
+            return new File[0];
+        }
+
+        // Sort the files in descending order by date then name
+        sortFiles(files);
+
+        return files;
+    }
+
+    /**
+     * How do you see the images in Android Studio?
+     * on macOS, in Android Studio, go to View --> Tool Windows --> Device Manager.
+     * Navigate to the data --> data folder and find the folder for your application.
+     * This app's folder would be com.example.comp433assignment02. Look in the "files"
+     * folder within this folder for the actual files.
+     */
+    private void updateAppPhotoList() {
+        // make sure that the list of photos is up to date
+        File[] allPhotos = getFileList();
+
+        int numPhotos = allPhotos.length;
+
+        Log.v("updateAppPhotoList", "# of photos: " + numPhotos);
+
+        ImageView[] imageViews = {findViewById(R.id.iv1), findViewById(R.id.iv2), findViewById(R.id.iv3)};
+
+        for (int i = 0; i < imageViews.length; i++) {
+            // Set the default background to a dark gray for the ImageView
+            imageViews[i].setBackgroundColor(Color.rgb(169, 169, 169));
+            imageViews[i].setImageBitmap(null);
+
+            if (i + 1 > numPhotos) {
+                continue;
+            }
+
+            File currentImage = allPhotos[i];
+
+            // Update the imageview with the appropriate image
+            imageViews[i].setBackgroundColor(Color.rgb(255, 255, 255));
+            Bitmap image = BitmapFactory.decodeFile(currentImage.getAbsolutePath());
+            imageViews[i].setImageBitmap(image);
+        }
+
+        // Clear the canvas
+        onClickClear(null);
+
+        this.appPhotos = allPhotos;
+    }
+
+
+
+    /**
+     * Returns a File object for saving a full-size photo from the current canvas.
+     * @return File
+     * @throws IOException
+     * <a href="https://developer.android.com/media/camera/camera-deprecated/photobasics#TaskPath">...</a>
+     */
+    private File createImageFile() throws IOException {
+        // Create the filename first
+        // The Locale.US is optional, sets the timezone for the date
+        String timeStamp = new SimpleDateFormat(
+                "yyyyMMdd_HHmmss",
+                Locale.US
+        ).format(new Date());
+        String imageFileName = "IMG_" + timeStamp;
+
+        // Seems like you have to create a File object for the parent directory of the photo
+        // that will be returned from the camera
+        // This points to this folder in the file system:
+        // /storage/emulated/0/Android/data/com.example.comp433assignment02
+        File imageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        return File.createTempFile(
+                imageFileName,  /* prefix */
+                this.photoFileExtension,         /* suffix */
+                imageDir      /* directory */
+        );
     }
 
     public void onClickClear(View view) {
+        MyDrawingArea v = findViewById(R.id.drawingarea);
+        v.clearDrawing();
+    }
+
+    public void onClickSave(View view) {
+
+        try {
+            MyDrawingArea v = findViewById(R.id.drawingarea);
+            Bitmap b = v.getBitmap(); //we wrote this function inside custom view
+            File f = createImageFile();
+            FileOutputStream fos = new FileOutputStream(f);
+            b.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            fos.flush();
+            fos.close();
+
+            Log.v("onClickSave()", f.getAbsolutePath());
+
+            // Update the ImageViews with the latest photos
+            updateAppPhotoList();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }
